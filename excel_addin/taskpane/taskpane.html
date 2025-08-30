@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LyncFormula - AI Excel Assistant</title>
+    
+    <!-- Office JavaScript API -->
+    <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+    
+    <!-- Fluent UI React CDN -->
+    <link rel="stylesheet" href="https://res-1.cdn.office.net/files/fabric-cdn-prod_20230815.002/office-ui-fabric-react/css/fabric.min.css">
+    
+    <!-- Custom styles -->
+    <link rel="stylesheet" href="taskpane.css">
+</head>
+
+<body class="ms-welcome ms-Fabric">
+    <!-- Header Section -->
+    <header class="ms-welcome__header ms-bgColor-neutralLighter ms-u-fadeIn500">
+        <div class="header-content">
+            <img width="90" height="90" src="assets/logo-filled.png" alt="LyncFormula" title="LyncFormula" />
+            <h1 class="ms-fontSize-su ms-fontWeight-light ms-fontColor-neutralPrimary">LyncFormula</h1>
+            <p class="ms-fontSize-l ms-fontWeight-semilight ms-fontColor-neutralSecondary">AI-Powered Excel Assistant</p>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main id="app-body" class="ms-welcome__main ms-u-fadeIn500">
+        
+        <!-- Connection Status -->
+        <div id="connection-status" class="connection-status">
+            <div id="status-indicator" class="status-indicator connecting">
+                <span class="status-dot"></span>
+                <span id="status-text" class="status-text">Connecting to AI service...</span>
+            </div>
+        </div>
+
+        <!-- Natural Language Input Section -->
+        <section class="input-section">
+            <div class="ms-Grid">
+                <div class="ms-Grid-row">
+                    <div class="ms-Grid-col ms-sm12">
+                        <div class="ms-TextField">
+                            <label class="ms-Label ms-fontSize-m ms-fontWeight-semibold">What would you like me to do?</label>
+                            <textarea 
+                                id="natural-language-input" 
+                                class="ms-TextField-field" 
+                                placeholder="Examples:&#10;• Consolidate all my sales files and create a summary&#10;• Audit formulas in the current sheet&#10;• Find all transactions over $1000 and group by category&#10;• Fix the errors in column A formulas"
+                                rows="4"
+                            ></textarea>
+                        </div>
+                        
+                        <!-- Quick Action Buttons -->
+                        <div class="quick-actions">
+                            <button id="btn-audit-sheet" class="ms-Button ms-Button--primary quick-action-btn">
+                                <span class="ms-Button-icon">
+                                    <i class="ms-Icon ms-Icon--Search" aria-hidden="true"></i>
+                                </span>
+                                <span class="ms-Button-label">Audit Current Sheet</span>
+                            </button>
+                            <button id="btn-explain-formulas" class="ms-Button ms-Button--default quick-action-btn">
+                                <span class="ms-Button-icon">
+                                    <i class="ms-Icon ms-Icon--Chat" aria-hidden="true"></i>
+                                </span>
+                                <span class="ms-Button-label">Explain Formulas</span>
+                            </button>
+                            <button id="btn-consolidate-files" class="ms-Button ms-Button--default quick-action-btn">
+                                <span class="ms-Button-icon">
+                                    <i class="ms-Icon ms-Icon--FabricFolder" aria-hidden="true"></i>
+                                </span>
+                                <span class="ms-Button-label">Consolidate Files</span>
+                            </button>
+                        </div>
+                        
+                        <!-- Main Action Button -->
+                        <button id="btn-submit" class="ms-Button ms-Button--primary main-action-btn" disabled>
+                            <span class="ms-Button-icon">
+                                <i class="ms-Icon ms-Icon--Send" aria-hidden="true"></i>
+                            </span>
+                            <span class="ms-Button-label">Ask LyncFormula</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- File Selection Section -->
+        <section id="file-selection-section" class="file-section" style="display: none;">
+            <div class="ms-Grid">
+                <div class="ms-Grid-row">
+                    <div class="ms-Grid-col ms-sm12">
+                        <h3 class="ms-fontSize-l ms-fontWeight-semibold">Select Files</h3>
+                        <div class="file-selection-area">
+                            <button id="btn-browse-files" class="ms-Button ms-Button--default">
+                                <span class="ms-Button-icon">
+                                    <i class="ms-Icon ms-Icon--FolderOpen" aria-hidden="true"></i>
+                                </span>
+                                <span class="ms-Button-label">Browse Files</span>
+                            </button>
+                            <div id="selected-files" class="selected-files-list">
+                                <!-- Selected files will appear here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Results Section -->
+        <section id="results-section" class="results-section">
+            <div class="ms-Grid">
+                <div class="ms-Grid-row">
+                    <div class="ms-Grid-col ms-sm12">
+                        <div id="results-content" class="results-content">
+                            <!-- Results will appear here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Conversation History -->
+        <section id="history-section" class="history-section">
+            <div class="ms-Grid">
+                <div class="ms-Grid-row">
+                    <div class="ms-Grid-col ms-sm12">
+                        <div class="history-header">
+                            <h3 class="ms-fontSize-l ms-fontWeight-semibold">Recent Operations</h3>
+                            <button id="btn-clear-history" class="ms-Button ms-Button--default ms-Button--small">
+                                <span class="ms-Button-label">Clear</span>
+                            </button>
+                        </div>
+                        <div id="history-content" class="history-content">
+                            <!-- History items will appear here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Loading Overlay -->
+        <div id="loading-overlay" class="loading-overlay" style="display: none;">
+            <div class="loading-content">
+                <div class="ms-Spinner ms-Spinner--large">
+                    <div class="ms-Spinner-circle ms-Spinner-circle--lg"></div>
+                    <div class="ms-Spinner-label">Processing your request...</div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="ms-welcome__footer ms-bgColor-neutralLighter">
+        <div class="footer-content">
+            <p class="ms-fontSize-s ms-fontColor-neutralSecondary">
+                <span class="privacy-badge">🔒 100% Private</span>
+                All processing happens locally on your machine
+            </p>
+            <div class="footer-links">
+                <button id="btn-settings" class="ms-Button ms-Button--default ms-Button--small">
+                    <span class="ms-Button-icon">
+                        <i class="ms-Icon ms-Icon--Settings" aria-hidden="true"></i>
+                    </span>
+                    <span class="ms-Button-label">Settings</span>
+                </button>
+                <button id="btn-help" class="ms-Button ms-Button--default ms-Button--small">
+                    <span class="ms-Button-icon">
+                        <i class="ms-Icon ms-Icon--Help" aria-hidden="true"></i>
+                    </span>
+                    <span class="ms-Button-label">Help</span>
+                </button>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Settings Panel (Initially Hidden) -->
+    <div id="settings-panel" class="settings-panel" style="display: none;">
+        <div class="settings-content">
+            <div class="settings-header">
+                <h3 class="ms-fontSize-l ms-fontWeight-semibold">Settings</h3>
+                <button id="btn-close-settings" class="ms-Button ms-Button--default ms-Button--small">
+                    <span class="ms-Button-icon">
+                        <i class="ms-Icon ms-Icon--Cancel" aria-hidden="true"></i>
+                    </span>
+                </button>
+            </div>
+            <div class="settings-body">
+                <div class="ms-TextField">
+                    <label class="ms-Label">Service URL</label>
+                    <input id="service-url" class="ms-TextField-field" type="text" value="http://127.0.0.1:8700" />
+                </div>
+                <div class="ms-TextField">
+                    <label class="ms-Label">LLM Model</label>
+                    <select id="llm-model" class="ms-Dropdown-select">
+                        <option value="llama3.1:8b">Llama 3.1 8B (Default)</option>
+                        <option value="phi3:mini">Phi3 Mini (Lightweight)</option>
+                        <option value="mixtral:8x7b">Mixtral 8x7B (Advanced)</option>
+                    </select>
+                </div>
+                <div class="ms-CheckBox">
+                    <input id="auto-backup" type="checkbox" class="ms-CheckBox-input" checked />
+                    <label for="auto-backup" class="ms-CheckBox-label">
+                        <span class="ms-CheckBox-checkbox">
+                            <i class="ms-CheckBox-checkmark ms-Icon ms-Icon--CheckMark"></i>
+                        </span>
+                        <span class="ms-CheckBox-text">Auto-backup before fixes</span>
+                    </label>
+                </div>
+                <button id="btn-save-settings" class="ms-Button ms-Button--primary">
+                    <span class="ms-Button-label">Save Settings</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="taskpane.js"></script>
+</body>
+</html>

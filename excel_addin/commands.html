@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+</head>
+<body>
+    <script>
+        // Initialize Office
+        Office.onReady(function() {
+            console.log('LyncFormula commands loaded');
+        });
+
+        // Service URL configuration
+        const SERVICE_URL = 'http://127.0.0.1:8700';
+
+        /**
+         * Quick Audit - Analyze all formulas in the current sheet
+         */
+        function quickAudit(event) {
+            Excel.run(async (context) => {
+                try {
+                    const worksheet = context.workbook.worksheets.getActiveWorksheet();
+                    worksheet.load('name');
+                    
+                    const usedRange = worksheet.getUsedRange();
+                    usedRange.load('formulas, address');
+                    
+                    await context.sync();
+                    
+                    if (!usedRange.formulas) {
+                        showNotification('No formulas found in the current sheet');
+                        event.completed();
+                        return;
+                    }
+
+                    // Collect formulas
+                    const formulas = {};
+                    const formulasArray = usedRange.formulas;
+                    
+                    for (let row = 0; row < formulasArray.length; row++) {
+                        for (let col = 0; col < formulasArray[row].length; col++) {
+                            const formula = formulasArray[row][col];
+                            if (formula && formula.toString().startsWith('=')) {
+                                const address = getCellAddress(row, col, usedRange.address);
+                                formulas[address] = formula.toString();
+                            }
+                        }
+                    }
+
+                    if (Object.keys(formulas).length === 0) {
+                        showNotification('No formulas found in the current sheet');
+                        event.completed();
+                        return;
+                    }
+
+                    // Send to service for analysis
+                    const requestData = {
+                        worksheet: worksheet.name,
+                        formulas: formulas
+                    };
+
+                    showNotification('Analyzing formulas...');
+
+                    const response = await fetch(`${SERVICE_URL}/smart_analysis`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(requestData)
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        const summary = result.summary || {};
+                        const errorsFound = summary.errors_found || 0;
+                        const total = summary.total_formulas || 0;
+                        
+                        if (errorsFound > 0) {
+                            showNotification(`Audit Complete: ${errorsFound} issues found in ${total} formulas. Open LyncFormula for details.`, 'warning');
+                        } else {
+                            showNotification(`Audit Complete: All ${total} formulas look good!`, 'success');
+                        }
+                    } else {
+                        showNotification(`Audit failed: ${result.error}`, 'error');
+                    }
+
+                    event.completed();
+
+                } catch (error) {
+                    console.error('Quick audit failed:', error);
+                    showNotification(`Audit failed: ${error.message}`, 'error');
+                    event.completed();
+                }
+            });
+        }
+
+        /**
+         * Explain Formulas - Get explanations for all formulas in current sheet
+         */
+        function explainFormulas(event) {
+            Excel.run(async (context) => {
+                try {
+                    const worksheet = context.workbook.worksheets.getActiveWorksheet();
+                    worksheet.load('name');
+                    
+                    const usedRange = worksheet.getUsedRange();
+                    usedRange.load('formulas, address');
+                    
+                    await context.sync();
+                    
+                    if (!usedRange.formulas) {
+                        showNotification('No formulas found in the current sheet');
+                        event.completed();
+                        return;
+                    }
+
+                    // Collect formulas
+                    const formulas = {};
+                    const formulasArray = usedRange.formulas;
+                    
+                    for (let row = 0; row < formulasArray.length; row++) {
+                        for (let col = 0; col < formulasArray[row].length; col++) {
+                            const formula = formulasArray[row][col];
+                            if (formula && formula.toString().startsWith('=')) {
+                                const address = getCellAddress(row, col, usedRange.address);
+                                formulas[address] = formula.toString();
+                            }
+                        }
+                    }
+
+                    if (Object.keys(formulas).length === 0) {
+                        showNotification('No formulas found in the current sheet');
+                        event.completed();
+                        return;
+                    }
+
+                    // Send to service for explanation
+                    const requestData = {
+                        worksheet: worksheet.name,
+                        formulas: formulas
+                    };
+
+                    showNotification('Generating explanations...');
+
+                    const response = await fetch(`${SERVICE_URL}/explain_sheet`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(requestData)
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        const total = result.summary?.total_formulas || 0;
+                        showNotification(`Generated explanations for ${total} formulas. Open LyncFormula to view details.`, 'success');
+                    } else {
+                        showNotification(`Explanation failed: ${result.error}`, 'error');
+                    }
+
+                    event.completed();
+
+                } catch (error) {
+                    console.error('Explain formulas failed:', error);
+                    showNotification(`Explanation failed: ${error.message}`, 'error');
+                    event.completed();
+                }
+            });
+        }
+
+        /**
+         * Utility function to get cell address from row/col indices
+         */
+        function getCellAddress(row, col, rangeAddress) {
+            // Extract the starting cell address from the range
+            const match = rangeAddress.match(/([A-Z]+)([0-9]+)/);
+            if (!match) return 'A1';
+            
+            const startCol = match[1];
+            const startRow = parseInt(match[2]);
+            
+            // Convert column index to letter
+            const colLetter = getColumnLetter(getColumnNumber(startCol) + col);
+            const rowNumber = startRow + row;
+            
+            return `${colLetter}${rowNumber}`;
+        }
+
+        /**
+         * Convert column number to letter (A=1, B=2, etc.)
+         */
+        function getColumnLetter(colNum) {
+            let result = '';
+            while (colNum > 0) {
+                colNum--;
+                result = String.fromCharCode(65 + (colNum % 26)) + result;
+                colNum = Math.floor(colNum / 26);
+            }
+            return result;
+        }
+
+        /**
+         * Convert column letter to number (A=1, B=2, etc.)
+         */
+        function getColumnNumber(colLetter) {
+            let result = 0;
+            for (let i = 0; i < colLetter.length; i++) {
+                result = result * 26 + (colLetter.charCodeAt(i) - 64);
+            }
+            return result;
+        }
+
+        /**
+         * Show notification to user
+         */
+        function showNotification(message, type = 'info') {
+            // Try to use Office notification API
+            if (Office.context.ui && Office.context.ui.displayDialogAsync) {
+                // For more complex notifications, could open a dialog
+                console.log(`${type.toUpperCase()}: ${message}`);
+            } else {
+                console.log(`${type.toUpperCase()}: ${message}`);
+            }
+            
+            // Also try to use native browser notification if available
+            if (typeof window !== 'undefined' && window.parent) {
+                try {
+                    // Send message to task pane if it's open
+                    window.parent.postMessage({
+                        type: 'notification',
+                        message: message,
+                        level: type
+                    }, '*');
+                } catch (e) {
+                    // Ignore if can't send message
+                }
+            }
+        }
+
+        // Global functions for Office to call
+        window.quickAudit = quickAudit;
+        window.explainFormulas = explainFormulas;
+
+    </script>
+</body>
+</html>
